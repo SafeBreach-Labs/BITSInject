@@ -5,6 +5,7 @@
 //   Authors: Dor Azouri (dor.azouri@safebreach.com)
 //   Version: 1.0
 //   Purpose: Parse BITS (Background Intelligent Transfer Service) state files
+//   Reference: https://github.com/SafeBreach-Labs/BITSInject
 //------------------------------------------------
 
 
