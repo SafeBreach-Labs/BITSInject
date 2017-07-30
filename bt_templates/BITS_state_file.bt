@@ -1,0 +1,292 @@
+//------------------------------------------------
+//--- 010 Editor v7.0.2 Binary Template
+//
+//      File: BITS_state_file.bt
+//   Authors: Dor Azouri (dor.azouri@safebreach.com)
+//   Version: 1.0
+//   Purpose: Parse BITS (Background Intelligent Transfer Service) state files
+//------------------------------------------------
+
+
+// General headers
+local byte first_byte;  // Check first byte to determine Win7/Win10
+first_byte = ReadByte( FTell() );
+
+local int IsWin10 = false;
+if (first_byte == 0xFFFFFFF5){  // Win7
+    byte StateFileChangingHeader[0x10] <bgcolor=cAqua, comment="Varies on other machines with same OS, completely different on Win10">;
+} else if (first_byte == 0x28){  // Win10
+    byte StateFileChangingHeader[0x18] <bgcolor=cAqua, comment="Varies on other machines with same OS, completely different on Win10">;
+    IsWin10 = true;
+};
+byte StateFileStaticHeader[0x10] <bgcolor=cAqua, comment="Identical across OSs">;
+struct QUEUE_HEADER {
+    byte Data[0x10];
+} QueueHeader <bgcolor=cAqua>;
+
+// Jobs
+int JobsCounter <bgcolor=cAqua>;
+local int ji;
+for (ji=0; ji < JobsCounter; ji++){
+    
+    struct JOB{
+        struct JOB_HEADER_FOOTER{
+            byte Data[16];
+        } JobHeader <bgcolor=cAqua>;
+        
+        enum JOB_TYPE {
+            Download,
+            Upload,
+            UploadReply,
+            Unknown
+        } JobType <bgcolor=cAqua>;
+        
+        enum PRIORITY {
+            Foreground,
+            High,
+            Normal,
+            Low
+        } Priority <bgcolor=cAqua, comment="Maybe it includes other flags as well, and not using whole int for the priority">;
+        
+        enum JOB_STATE {
+            Queued,
+            Connecting,
+            Transferring,
+            Suspended,
+            Error,
+            TransientError,
+            Transferred,
+            Acknowledged,
+            Cancelled,
+            _Unknown
+        } JobState <bgcolor=cAqua>;
+        
+        int Unknown00 <format=hex, bgcolor=cAqua>;
+    
+        int64 Guid[2] <format=hex, bgcolor=cAqua>;
+        
+        struct DISPLAY_NAME {
+            int DisplayNameLength;
+            wstring DisplayName;
+        } DisplayName <bgcolor=cLtGreen>;
+        
+        struct DESCRIPTION {
+            int DescriptionLength;
+            wstring Description;
+        } Description <bgcolor=cLtGreen>;
+        
+        struct COMMAND_LINE{
+            int CommandLineLength;
+            wstring CommandLine;
+        } CommandLine <bgcolor=cLtGreen>;
+        
+        struct COMMAND_LINE_PARAMS{
+            int CommandLineParamsLength;
+            wstring CommandLineParams;
+        } CommandLineParams <bgcolor=cLtGreen>;
+        
+        struct _SID {
+            int SIDLength;
+            wstring SID;
+        } SID <bgcolor=cLtGreen>;
+        
+        //  00001 - BG_NOTIFY_JOB_TRANSFERRED
+        //  00010 - BG_NOTIFY_JOB_ERROR
+        //  00100 - BG_NOTIFY_DISABLE
+        //  01000 - BG_NOTIFY_JOB_MODIFICATION
+        //  10000 - BG_NOTIFY_FILE_TRANSFERRED
+        // The following enum does not contain all possible flags combinations
+        enum NOTIFICATION_FLAGS {
+            BG_NOTIFY_JOB_TRANSFERRED = 1,
+            BG_NOTIFY_JOB_ERROR = 2,
+            BG_NOTIFY_JOB_TRANSFERRED_BG_NOTIFY_JOB_ERROR = 3,
+            BG_NOTIFY_DISABLE = 4,
+            BG_NOTIFY_JOB_TRANSFERRED_BG_NOTIFY_DISABLE = 5,
+            BG_NOTIFY_JOB_ERROR_BG_NOTIFY_DISABLE = 6,
+            BG_NOTIFY_JOB_TRANSFERRED_BG_NOTIFY_JOB_ERROR_BG_NOTIFY_DISABLE = 7,
+            BG_NOTIFY_JOB_MODIFICATION = 8,
+            BG_NOTIFY_FILE_TRANSFERRED = 16
+        } NotificationFlags <bgcolor=cAqua, comment="001B for WU, 0003 for custom">;
+        
+        struct ACCESS_TOKEN {
+            byte UserSecurityStuffMaybeIntegrity[70] <bgcolor=cLtYellow>;
+            
+            byte Nulls[982] <fgcolor=cLtGray, bgcolor=cDkRed>;
+            
+            local int closure[4] = {0x7756da36, 0x435a516f, 0xa244acac, 0x4df3ff48};
+            local int pos = FTell(); // save read position
+            local int ui;
+            for (ui =0; ui < 0x100000; ui++){
+                if (ReadInt( FTell() ) == closure[0]){
+                    FSeek(FTell() + 0x4);
+                    if (ReadInt( FTell() ) == closure[1]){
+                        FSeek(FTell() + 0x4);
+                        if (ReadInt( FTell() ) == closure[2]){
+                            FSeek(FTell() + 0x4);
+                            if ( ReadInt( FTell() ) == closure[3]){
+                                FSeek(FTell() + 0x4);
+                                break;
+                            }
+                        }
+                    }
+                }
+                FSeek(FTell() + 0x4);
+            }
+            Printf( "Gap = %d\n", ui*4 + 16 );
+            FSeek(pos);
+            byte SecurityDescriptor[ui*4] <format=hex, bgcolor=cLtYellow, comment="Not sure if it is a whole security descriptor or just the DACL part">;
+            // Example of this DACL:
+            /*
+            02 00 5C 00 (02=DACL, 04=SACL; 5C=DACL size in bytes, including this header)
+            04 00 00 00 (number of records in list)
+                (Record = byte for deny/allow, byte unknown, byte-or-two size of record including this header)
+            01 00 14 00 3F 00 0F 00 01 01 00 00 00 00 00 05 07 00 00 00 (Deny some rights from anonymous)
+            01 00 14 00 3F 00 0F 00 01 01 00 00 00 00 00 05 02 00 00 00 (Deny some rights from Network)
+            00 00 14 00 3F 00 0F 00 01 01 00 00 00 00 00 05 12 00 00 00 (Allow some rights to system)
+            00 00 18 00 3F 00 0F 00 01 02 00 00 00 00 00 05 20 00 00 00 20 02 00 00 (Allow some rights to Administrators)
+            (below is not part of the DACL list)
+            01 01 00 00 00 00 00 05 12 00 00 00 (system)
+            01 01 00 00 00 00 00 05 12 00 00 00 (system)
+            */
+            FSeek(pos + ui*4);
+        } AccessToken <bgcolor=cLtYellow>;
+    
+        struct FILES_HEADER_FOOTER {
+            byte FileListHeaderFooter[16];
+        } FilesHeader <bgcolor=cAqua>;
+        
+        // Job files
+        int FilesCount <bgcolor=cAqua>;
+        local int fi;
+        for (fi=0;fi<FilesCount;fi++){
+            struct FILE{
+                struct DESTINATION_PATH{
+                    int DestinationPathLength;
+                    wstring DestinationPath;
+                } DestinationPath <bgcolor=cLtGreen>;
+                
+                struct REMOTE_URL{
+                    int RemoteURLLength;
+                    wstring RemoteURL;
+                } RemoteURL <bgcolor=cLtGreen>;
+                
+                struct TEMP_PATH{
+                    int TempPathLength;
+                    wstring TempPath;
+                } TempPath <bgcolor=cLtGreen>;
+                
+                uint64 DownloadedBytesCount <bgcolor=cAqua>;
+                
+                uint64 TotalBytesCount <bgcolor=cAqua>;
+            
+                byte Null <fgcolor=cLtGray, bgcolor=cDkRed>;
+                
+                struct DRIVE_PATH{
+                    int DrivePathLength;
+                    wstring DrivePath;
+                } DrivePath <bgcolor=cLtGreen>;
+                
+                struct DRIVE_VOLUME_PATH{
+                    int DriveVolumePathLength;
+                    wstring DriveVolumePath;
+                } DriveVolumePath <bgcolor=cLtGreen>;
+                
+                byte Unknown01[25] <bgcolor=cLtRed>;
+                
+                // File ranges
+                int RangesCount <bgcolor=cAqua>;
+                local int ri;
+                for (ri=0;ri<RangesCount;ri++){
+                    struct RANGE{
+                        int64 RangeStart;
+                        int64 RangeSize;
+                    } Range;
+                }
+                byte Unknown02[44] <format=hex, bgcolor=cLtRed>;
+            } File;
+        }
+    
+        FILES_HEADER_FOOTER FilesFooter <bgcolor=cAqua>;
+        
+        byte Unknown03[8] <format=hex, bgcolor=cLtRed>;
+    
+        int MinRetryDelay <bgcolor=cAqua>;
+        
+        int NoProgressTimeout <bgcolor=cAqua>;
+        
+        FILETIME CreationTime <bgcolor=cAqua>;
+        FILETIME ModificationTime <bgcolor=cAqua>;
+        FILETIME time <bgcolor=cAqua>;
+        byte Unknown04[14] <format=hex, bgcolor=cLtRed>;
+        FILETIME time <bgcolor=cAqua>;
+        FILETIME ExpirationAbsoluteTime <bgcolor=cAqua>;
+        
+        byte Unknown05[3] <format=hex, bgcolor=cLtRed>;
+        
+        local int is_proxy = 0;
+        enum PROXY_SETTING{
+            PRECONFIG,
+            NO_PROXY,
+            OVERRIDE
+        } ProxySettings <bgcolor=cAqua>;
+        is_proxy = ProxySettings;
+        
+        if( is_proxy != 0 ){
+            byte ProxyCount  <bgcolor=cAqua>;
+            
+            if( ProxyCount != 0 ){
+                struct PROXY_STRING{
+                    int ProxyStringLength;
+                    wstring ProxyString;
+                } ProxyString <bgcolor=cLtGreen>;
+            }
+           
+            byte BypassCount  <bgcolor=cAqua>;
+            
+            if( BypassCount != 0 ){
+                struct BYPASS_ADDRESS{
+                    int BypassAddressLength;
+                    wstring BypassAddress;
+                } BypassAddress <bgcolor=cLtGreen>;
+            }
+        }
+        else{
+            byte ProxyCount <bgcolor=cAqua>;
+            byte BypassCount <bgcolor=cAqua>;
+        }
+        byte Unknown06 <format=hex, bgcolor=cLtRed>;
+        
+        int ACLFlags <bgcolor=cAqua>;
+        
+        byte Unknown07[28] <format=hex, bgcolor=cLtRed>;
+        
+        //Enable CRL Check                                 : Set the least significant bit
+        //Ignore invalid common name in server certificate : Set the 2nd bit from right
+        //Ignore invalid date in  server certificate       : Set the 3rd bit from right
+        //Ignore invalid certificate authority in server
+        //  certificate                                    : Set the 4th bit from right
+        //Ignore invalid usage of certificate              : Set the 5th bit from right
+        //Redirection policy                               : Controlled by the 9th-11th bits from right
+        //    0,0,0  - Redirects will be automatically allowed.
+        //    0,0,1  - Remote name in the IBackgroundCopyFile interface will be updated if a redirect occurs.
+        //    0,1,0  - BITS will fail the job if a redirect occurs.
+        //
+        //Allow redirection from HTTPS to HTTP             : Set the 12th bit from right
+        int SecurityFlags <format=binary, bgcolor=cAqua>;
+    
+        int Unknown08 <format=hex, bgcolor=cLtRed>;
+        
+        int MaxDownloadTime <bgcolor=cAqua>;
+        if (IsWin10){
+            byte Unknown09[55] <format=hex, bgcolor=cLtRed>;
+        } else {
+            byte Unknown09[8] <format=hex, bgcolor=cLtRed>;
+        }
+        
+        JOB_HEADER_FOOTER JobFooter <bgcolor=cAqua>;
+    } Job;
+}
+
+struct QUEUE_FOOTER {
+    byte Data[84];
+} QueueFooter <bgcolor=cAqua>;
