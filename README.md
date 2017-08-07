@@ -6,21 +6,20 @@ The program you set as the command line will be executed by the svchost.exe that
 
 Executing this tool requires local Administrator rights.
 
-* This tool performs the suggested queue injection method that was presented at DEF CON 25:
-  https://defcon.org/html/defcon-25/dc-25-speakers.html#Azouri
-* The new general technique presented allows injection and wide manipulation on the queue. This tool is using this technique specifically to gain LocalSystem execution. The injected SYSTEM job gets the properties from the given parameters.
+* This tool performs the suggested queue injection method that was presented at DEF CON 25
+* The new general technique presented allows injection and wide manipulation on the queue. This tool is using this technique specifically to gain LocalSystem execution. The injected SYSTEM job gets the properties from the given parameters
 
 ## References
 
+* [White Paper](https://go.safebreach.com/rs/535-IXZ-934/images/BITSINJECT.pdf)
 * [DEF CON 25 Talk Brief - BITSInject](https://defcon.org/html/defcon-25/dc-25-speakers.html#Azouri)
 * [Talk Slides](https://media.defcon.org/DEF%20CON%2025/DEF%20CON%2025%20presentations/Dor%20Azouri/DEFCON-25-Dor-Azouri-BITSInject-WP.pdf)
-* [White Paper](https://safebreach.com/safebreach-labs)
-* [SimpleBITSServer](https://github.com/SafeBreach-Labs/SimpleBITSServer) - an optional complementary tool to be used in conjuction with this tool.
+* [SimpleBITSServer](https://github.com/SafeBreach-Labs/SimpleBITSServer) - an optional complementary tool to be used in conjuction with this tool
 
 ## Folders in this rep:
-* \bt_templates - An *010 Editor* template to parse and easily edit your desired state file.
-* \job_payloads - The base job payloads that were crafted and are edited according to the parameters you specify, before injecting to the BITS queue.
-* \state_files - Sample pre-made state files to examine or to overwrite your own.
+* **\bt_templates** - An *010 Editor* template to parse and easily edit your desired state file.
+* **\job_payloads** - The base job payloads that were crafted and are edited according to the parameters you specify, before injecting to the BITS queue.
+* **\state_files** - Sample pre-made state files to examine or to overwrite your own.
 
 ## Usage
 
