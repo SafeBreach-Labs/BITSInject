@@ -13,8 +13,9 @@ Executing this tool requires local Administrator rights.
 
 * [White Paper](https://go.safebreach.com/rs/535-IXZ-934/images/BITSINJECT.pdf)
 * [DEF CON 25 Talk Brief - BITSInject](https://defcon.org/html/defcon-25/dc-25-speakers.html#Azouri)
-* [Talk Slides](https://media.defcon.org/DEF%20CON%2025/DEF%20CON%2025%20presentations/Dor%20Azouri/DEFCON-25-Dor-Azouri-BITSInject.pdf)
+* [Talk Slides](https://media.defcon.org/DEF%20CON%2025/DEF%20CON%2025%20presentations/DEF%20CON%2025%20-%20Dor-Azouri-BITSInject.pdf)
 * [SimpleBITSServer](https://github.com/SafeBreach-Labs/SimpleBITSServer) - an optional complementary tool to be used in conjuction with this tool
+* [Behavior:Win32/BitsInject.A!attk](https://www.microsoft.com/en-us/wdsi/threats/malware-encyclopedia-description?Name=Behavior:Win32/BitsInject.A!attk&ThreatID=-2147244170) - Windows Defender Threat Signature
 
 ## Folders in this rep:
 * **\bt_templates** - An *010 Editor* template to parse and easily edit your desired state file.
